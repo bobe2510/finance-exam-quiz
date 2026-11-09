@@ -80,6 +80,8 @@ const Q = DB.q, CH = DB.ch, IMG = DB.img || [];
 // 官方固定題庫沒有重複出題，整份都是 1，此時不顯示頻率篩選。
 const FQ = q=>q.f||1;
 const HASFQ = Q.some(q=>FQ(q)>=2);
+// 整份題庫都是單選時，「題型」篩選沒有意義（選複選會得到 0 題），不顯示。
+const HASMULTI = Q.some(q=>q.m);
 const KEY = (DB.key || 'quiz') + '_';      // 每份考試用不同 key，避免同一瀏覽器的進度互相覆蓋
 const GROUPS = DB.groups || [''];
 document.title = DB.title || '互動測驗';
@@ -134,8 +136,8 @@ function home(){
   <div class="card"><h2 style="margin-top:0">1. 選擇範圍</h2>
     <div class="row"><button class="small" id="all">全選</button><button class="small" id="none">全不選</button>${GROUPS.length>1?GROUPS.map((gn,g)=>`<button class="small" data-grp="${g}">只選${esc(gn)}</button>`).join(''):''}</div>
     ${rows}
-    <h2>題型</h2>
-    <div class="seg" id="typeSeg">${[['all','全部'],['0','單選'],['1','複選']].map(([v,l])=>`<label><input type="radio" name="type" value="${v}" ${type===v?'checked':''}><span>${l}</span></label>`).join('')}</div>
+    ${HASMULTI?`<h2>題型</h2>
+    <div class="seg" id="typeSeg">${[['all','全部'],['0','單選'],['1','複選']].map(([v,l])=>`<label><input type="radio" name="type" value="${v}" ${type===v?'checked':''}><span>${l}</span></label>`).join('')}</div>`:''}
     ${HASFQ?`<h2>出題頻率</h2>
     <div class="seg" id="fqSeg">${[['all','全部'],['2','🔥 高頻'],['3','🔥🔥 超高頻']].map(([v,l])=>`<label><input type="radio" name="fq" value="${v}" ${fq===v?'checked':''}><span>${l}</span></label>`).join('')}</div>
     <div class="kb">依同一題（或同一考點）在試卷／題庫中出現的次數篩選：高頻＝2 次以上，超高頻＝3 次以上。時間不夠時先把高頻練完。歷屆試卷型的題庫，次數代表該考點被反覆考出；官方固定題庫沒有逐年重複，次數代表同一考點在題庫中佔的比重。每題作答後解析的最後一行會列出實際出處，可自行核對。</div>`:''}
@@ -158,7 +160,8 @@ function home(){
   </div>`;
   const readSel=()=>[...app.querySelectorAll('[data-ch]')].filter(x=>x.checked).map(x=>+x.dataset.ch);
   const pool=()=>{
-    const s=readSel(), t=app.querySelector('input[name=type]:checked').value, m=app.querySelector('input[name=mode]:checked').value;
+    const s=readSel(), m=app.querySelector('input[name=mode]:checked').value;
+    const tsel=app.querySelector('input[name=type]:checked'), t=tsel?tsel.value:'all';
     const fsel=app.querySelector('input[name=fq]:checked'), fv=fsel?fsel.value:'all';
     let p=Q.filter(q=>s.includes(q.c) && (t==='all'||String(q.m)===t) && (fv==='all'||FQ(q)>=+fv));
     if(m==='wrong') p=p.filter(q=>inWrong(q.id));
@@ -168,7 +171,8 @@ function home(){
   const upd=()=>{
     const p=pool(), m=app.querySelector('input[name=mode]:checked').value;
     const fsel2=app.querySelector('input[name=fq]:checked');
-    settings={...settings,sel:readSel(),type:app.querySelector('input[name=type]:checked').value,fq:fsel2?fsel2.value:'all',mode:m,cnt:app.querySelector('input[name=cnt]:checked').value,shuf:app.querySelector('input[name=shuf]:checked').value};save();
+    const tsel2=app.querySelector('input[name=type]:checked');
+    settings={...settings,sel:readSel(),type:tsel2?tsel2.value:'all',fq:fsel2?fsel2.value:'all',mode:m,cnt:app.querySelector('input[name=cnt]:checked').value,shuf:app.querySelector('input[name=shuf]:checked').value};save();
     app.querySelector('#poolInfo').textContent=`目前條件共 ${p.length} 題可練習`+(m==='unseen'?`（其中未練習 ${p.filter(q=>!prog[q.id]).length} 題）`:'');
     app.querySelector('#start').disabled=!p.length;
   };
